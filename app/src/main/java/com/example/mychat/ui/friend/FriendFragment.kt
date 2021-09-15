@@ -4,6 +4,7 @@ import android.app.AlertDialog
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.content.Intent
 import android.graphics.BitmapFactory
 import android.os.Build
 import android.os.Bundle
@@ -22,6 +23,8 @@ import cn.leancloud.LCUser
 import cn.leancloud.im.v2.*
 import com.example.mychat.FriendAdapter
 import com.example.mychat.R
+import com.example.mychat.chat.ChatUI
+import com.example.mychat.database.Friend
 import com.example.mychat.databinding.FriendFragmentBinding
 import com.example.mychat.showLog
 import io.reactivex.Observer
@@ -49,15 +52,23 @@ class FriendFragment : Fragment() {
         val friendRecyclerView = binding.friendRecyclerView
         val addFriendButton = binding.addFriendButton
 
-        viewModel.friends.observe(viewLifecycleOwner,{result ->
+        viewModel.friends.observe(viewLifecycleOwner,{ result ->
             if (result != null) {
                 val layoutManager = LinearLayoutManager(activity)
                 friendRecyclerView.layoutManager = layoutManager
-                val adapter = FriendAdapter(this,result)
+                val adapter = FriendAdapter(this,result,object : FriendAdapter.ItemListener {
+                    override fun onItemClick(position: Int, friend: Pair<Friend, Boolean>) {
+                        val intent = Intent(activity, ChatUI::class.java)
+                        intent.putExtra("friendName",friend.first.friendName)
+                        intent.putExtra("friendAvatar",friend.first.friendAvatar)
+                        startActivity(intent)
+                        viewModel.notifyMessageRead(friend.first.friendName)
+                    }
+                })
                 friendRecyclerView.adapter = adapter
             }
         })
-        viewModel.friendshipRequests.observe(viewLifecycleOwner, {result ->
+        viewModel.friendshipRequests.observe(viewLifecycleOwner, { result ->
             if (result != null) {
                 for (request in result) {
                     askForAcceptance(request)
@@ -123,8 +134,8 @@ class FriendFragment : Fragment() {
                 conversation: LCIMConversation?,
                 client: LCIMClient?
             ) {
-                val senderName = message.from
-                addNotification(senderName)
+                addNotification(message.from)
+                viewModel.notifyMessageUnread(message.from)
             }
         })
     }

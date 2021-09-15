@@ -1,5 +1,6 @@
 package com.example.mychat
 
+import android.annotation.SuppressLint
 import android.app.Application
 import android.content.Context
 import cn.leancloud.LCLogger
@@ -10,6 +11,7 @@ class MyApplication : Application() {
     private val tag = "MyApplication"
 
     companion object {
+        @SuppressLint("StaticFieldLeak")
         lateinit var context: Context
         const val appId = "q8o3Mk93LS3okVA7hzJa49Ju-gzGzoHsz"
         const val appKey = "zkMVGOFWBN112Ja8hg2kKtsd"

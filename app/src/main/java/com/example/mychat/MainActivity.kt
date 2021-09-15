@@ -56,7 +56,9 @@ class MainActivity : AppCompatActivity() {
                             LCUser.changeCurrentUser(user, true)
                             LCIMClient.getInstance(LCUser.currentUser().username)
                                 .open(object : LCIMClientCallback() {
-                                    override fun done(client: LCIMClient?, e: LCIMException?) {}
+                                    override fun done(client: LCIMClient?, e: LCIMException?) {
+                                        "connect open!".showLog(myTag)
+                                    }
                                 })
                             openNextActivity(user)
                             return

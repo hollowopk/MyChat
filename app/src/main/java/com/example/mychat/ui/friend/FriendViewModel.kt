@@ -16,14 +16,10 @@ import io.reactivex.disposables.Disposable
 
 
 
-
-
-
 class FriendViewModel(private val context: Context) : ViewModel() {
 
-    val friends = MutableLiveData<ArrayList<Friend>>()
+    val friends = MutableLiveData<ArrayList<Pair<Friend,Boolean>>>()
     val friendshipRequests = MutableLiveData<ArrayList<LCFriendshipRequest>>()
-    val redPointVisibility = MutableLiveData<Boolean>()
 
     private val myTag = "FriendViewModel"
     private var curUser: LCUser = LCUser.currentUser()
@@ -41,12 +37,12 @@ class FriendViewModel(private val context: Context) : ViewModel() {
         query.findInBackground().subscribe(object : Observer<List<LCObject?>?> {
             override fun onSubscribe(d: Disposable) {}
             override fun onNext(t: List<LCObject?>) {
-                val fList = ArrayList<Friend>()
+                val fList = ArrayList<Pair<Friend,Boolean>>()
                 for (lcObject in t) {
                     val friend = lcObject?.getLCObject<LCUser>("followee")
                     val friendName  = friend?.getString("username")!!
                     val friendAvatar = friend.getInt("userAvatar")
-                    fList.add(Friend(friendName,friendAvatar))
+                    fList.add(Pair(Friend(friendName,friendAvatar),false))
                 }
                 friends.value = fList
             }
@@ -54,6 +50,32 @@ class FriendViewModel(private val context: Context) : ViewModel() {
             override fun onError(e: Throwable) {}
             override fun onComplete() {}
         })
+    }
+
+    fun notifyMessageUnread(friendName: String) {
+        val friendList = ArrayList<Pair<Friend,Boolean>>()
+        for (friend in friends.value!!) {
+            if (friend.first.friendName == friendName) {
+                friendList.add(0,Pair(friend.first,true))
+            }
+            else {
+                friendList.add(friend)
+            }
+        }
+        friends.value = friendList
+    }
+
+    fun notifyMessageRead(friendName: String) {
+        val friendList = ArrayList<Pair<Friend,Boolean>>()
+        for (friend in friends.value!!) {
+            if (friend.first.friendName == friendName) {
+                friendList.add(Pair(friend.first,false))
+            }
+            else {
+                friendList.add(friend)
+            }
+        }
+        friends.value = friendList
     }
 
     private fun subscribeFriends() {
@@ -148,7 +170,7 @@ class FriendViewModel(private val context: Context) : ViewModel() {
     fun refreshFriendList(friendName: String, friendAvatar: Int) {
         val fList = friends.value
         if (fList != null) {
-            fList.add(Friend(friendName,friendAvatar))
+            fList.add(Pair(Friend(friendName,friendAvatar),false))
             friends.value = fList!!
         }
     }

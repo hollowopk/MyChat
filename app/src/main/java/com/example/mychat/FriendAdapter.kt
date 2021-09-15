@@ -1,18 +1,18 @@
 package com.example.mychat
 
 import android.content.Context
-import android.content.Intent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
-import com.example.mychat.chat.ChatUI
 import com.example.mychat.database.Friend
 import com.example.mychat.ui.friend.FriendFragment
 
-class FriendAdapter(private val fragment: FriendFragment, private val friendList: ArrayList<Friend>) :
+class FriendAdapter(private val fragment: FriendFragment,
+                             private val friendList: ArrayList<Pair<Friend,Boolean>>,
+                                private val itemListener: ItemListener) :
     RecyclerView.Adapter<FriendAdapter.ViewHolder>(){
 
     private val myTag = "FriendAdapter"
@@ -21,6 +21,11 @@ class FriendAdapter(private val fragment: FriendFragment, private val friendList
     inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val friendsName: TextView = view.findViewById(R.id.friendsName)
         val friendsAvatar: ImageView = view.findViewById(R.id.friendsAvatar)
+        val unreadPoint: ImageView = view.findViewById(R.id.unreadPoint)
+    }
+
+    interface ItemListener {
+        fun onItemClick(position: Int, friend: Pair<Friend,Boolean>)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -31,18 +36,22 @@ class FriendAdapter(private val fragment: FriendFragment, private val friendList
         holder.itemView.setOnClickListener {
             val position = holder.adapterPosition
             val friend = friendList[position]
-            val intent = Intent(context,ChatUI::class.java)
-            intent.putExtra("friendName",friend.friendName)
-            intent.putExtra("friendAvatar",friend.friendAvatar)
-            fragment.startActivity(intent)
+            itemListener.onItemClick(position,friend)
         }
         return holder
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val friend = friendList[position]
-        holder.friendsAvatar.setImageResource(friend.friendAvatar)
-        holder.friendsName.text = friend.friendName
+        holder.friendsAvatar.setImageResource(friend.first.friendAvatar)
+        holder.friendsName.text = friend.first.friendName
+        if (friend.second) {
+            holder.unreadPoint.visibility = View.VISIBLE
+            "visible".showLog(myTag)
+        }
+        else {
+            holder.unreadPoint.visibility = View.GONE
+        }
     }
 
     override fun getItemCount() = friendList.size

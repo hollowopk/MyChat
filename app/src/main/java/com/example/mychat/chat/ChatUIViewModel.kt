@@ -7,12 +7,10 @@ import cn.leancloud.LCUser
 import cn.leancloud.im.v2.*
 import cn.leancloud.im.v2.callback.LCIMConversationCallback
 import cn.leancloud.im.v2.callback.LCIMConversationCreatedCallback
+import cn.leancloud.im.v2.callback.LCIMConversationQueryCallback
 import cn.leancloud.im.v2.callback.LCIMMessagesQueryCallback
 import cn.leancloud.im.v2.messages.LCIMTextMessage
-import com.example.mychat.database.AppDatabase
 import com.example.mychat.database.Message
-import com.example.mychat.showLog
-import kotlin.concurrent.thread
 
 class ChatUIViewModel(val context: Context, val friendName: String) : ViewModel() {
 
@@ -27,47 +25,43 @@ class ChatUIViewModel(val context: Context, val friendName: String) : ViewModel(
     }
 
     private fun loadAllMessages() {
-        /*
-        val appDatabase = AppDatabase.getDatabase(context)
-        val messageDao = appDatabase.message()
-        val messageList = messageDao.loadAllMessagesByName(curUser.username,friendName)
-        val messageArrayList = messages.value
-        for (message in messageList) {
-            messageArrayList?.add(message)
-        }
-        var lastTimestamp : Long = 0
-        if (!messageArrayList.isNullOrEmpty()) {
-            lastTimestamp = messageArrayList.last().timestamp
-        }
-         */
         messages.value = ArrayList()
-        client.createConversation(listOf(friendName),"${curUser.username} & $friendName",
-                                    null, false, true,object :
-            LCIMConversationCreatedCallback() {
-            override fun done(conversation: LCIMConversation?, e: LCIMException?) {
-                conversation?.queryMessages(object : LCIMMessagesQueryCallback() {
-                    override fun done(mList: MutableList<LCIMMessage>?, e: LCIMException?) {
-                        if (e == null && mList != null) {
-                            for (message in mList) {
-                                val textMessage = message as LCIMTextMessage
-                                when (message.from) {
-                                    curUser.username -> {
-                                        val curMessage = Message(curUser.username,
-                                            friendName,textMessage.text,message.timestamp)
-                                        storeMessage(curMessage)
-                                    }
-                                    friendName -> {
-                                        val curMessage = Message(friendName,
-                                            curUser.username,textMessage.text,message.timestamp)
-                                        storeMessage(curMessage)
+        val query1 = client.conversationsQuery
+        val query2 = client.conversationsQuery
+        query1.whereEqualTo("name","${curUser.username} & $friendName")
+        query2.whereEqualTo("name","$friendName & ${curUser.username}")
+        val orQuery = LCIMConversationsQuery.or(listOf(query1,query2))
+        orQuery.findInBackground(object : LCIMConversationQueryCallback() {
+            override fun done(conversations: MutableList<LCIMConversation>?, e: LCIMException?) {
+                if (e == null && !conversations.isNullOrEmpty()) {
+                    if (conversations.size == 1) {
+                        val conversation = conversations[0]
+                        conversation.queryMessages(object : LCIMMessagesQueryCallback() {
+                            override fun done(mList: MutableList<LCIMMessage>?, e: LCIMException?) {
+                                if (e == null && mList != null) {
+                                    for (message in mList) {
+                                        val textMessage = message as LCIMTextMessage
+                                        when (message.from) {
+                                            curUser.username -> {
+                                                val curMessage = Message(curUser.username,
+                                                    friendName,textMessage.text,message.timestamp)
+                                                refreshMessage(curMessage)
+                                            }
+                                            friendName -> {
+                                                val curMessage = Message(friendName,
+                                                    curUser.username,textMessage.text,message.timestamp)
+                                                refreshMessage(curMessage)
+                                            }
+                                        }
                                     }
                                 }
                             }
-                        }
-                    }
 
-                })
+                        })
+                    }
+                }
             }
+
         })
     }
 
@@ -82,7 +76,7 @@ class ChatUIViewModel(val context: Context, val friendName: String) : ViewModel(
                 val textMsg = message as LCIMTextMessage
                 val curMsg = Message(senderName, curUser.username,
                                     textMsg.text, message.timestamp)
-                storeMessage(curMsg)
+                refreshMessage(curMsg)
             }
         })
     }
@@ -98,31 +92,17 @@ class ChatUIViewModel(val context: Context, val friendName: String) : ViewModel(
                     val msg = Message(curUser.username,friendName,content,System.currentTimeMillis())
                     conversation?.sendMessage(message,object : LCIMConversationCallback() {
                         override fun done(e: LCIMException?) {
-                            "4".showLog(tag)
-                            storeMessage(msg)
+                            refreshMessage(msg)
                         }
                     })
                 }
             })
     }
 
-    fun storeMessage(message: Message) {
-        val appDatabase = AppDatabase.getDatabase(context)
-        val messageDao = appDatabase.message()
-        "store message : ${message.content}".showLog(tag)
-        thread {
-            messageDao.insertMessage(message)
-            "message store".showLog(tag)
-        }
-        refreshMessage(message)
-    }
-
     private fun refreshMessage(message: Message) {
-        "curmessage size ${messages.value?.size}".showLog(tag)
-        val messageList = messages.value
-        messageList?.add(message)
-        messages.value = messageList!!
-        "nowmessage size ${messages.value?.size}".showLog(tag)
+        val messageList = messages.value!!
+        messageList.add(message)
+        messages.value = messageList
     }
 
 }

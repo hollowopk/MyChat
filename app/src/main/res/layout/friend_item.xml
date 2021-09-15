@@ -19,4 +19,12 @@
         android:textSize="23sp"
         android:layout_marginLeft="10dp"/>
 
+    <ImageView
+        android:id="@+id/unreadPoint"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_gravity="center_vertical"
+        android:layout_marginStart="230dp"
+        android:src="@drawable/redpoint"/>
+
 </LinearLayout>
