@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/mobile_navigation"
+    app:startDestination="@+id/navigation_friend">
+
+    <fragment
+        android:id="@+id/navigation_friend"
+        android:name="com.example.mychat.ui.friend.FriendFragment"
+        android:label="Friends"
+        tools:layout="@layout/friend_fragment" />
+
+    <fragment
+        android:id="@+id/navigation_userinfo"
+        android:name="com.example.mychat.ui.userinfo.UserInfoFragment"
+        android:label="UserInfo"
+        tools:layout="@layout/user_info_fragment" />
+</navigation>
