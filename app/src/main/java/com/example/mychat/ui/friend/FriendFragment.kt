@@ -20,6 +20,10 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import cn.leancloud.*
 import cn.leancloud.im.v2.*
+import cn.leancloud.livequery.LCLiveQuery
+import cn.leancloud.livequery.LCLiveQueryConnectionHandler
+import cn.leancloud.livequery.LCLiveQueryEventHandler
+import cn.leancloud.livequery.LCLiveQuerySubscribeCallback
 import com.example.mychat.BottomNavigationViewModel
 import com.example.mychat.FriendAdapter
 import com.example.mychat.R
@@ -30,6 +34,9 @@ import com.example.mychat.showLog
 import io.reactivex.Observer
 import io.reactivex.disposables.Disposable
 
+
+
+
 class FriendFragment : Fragment() {
 
     private val myTag = "FriendFragment"
@@ -39,7 +46,7 @@ class FriendFragment : Fragment() {
     private val activityViewModel : BottomNavigationViewModel by activityViewModels()
 
     companion object {
-        private var curUser: LCUser = LCUser.currentUser()
+        private val curUser: LCUser = LCUser.currentUser()
         fun updateLastContactTime(friendName: String, time: Long) {
             val query = LCQuery<LCObject>("_Followee")
             query.whereEqualTo(LCFriendship.ATTR_FRIEND_STATUS, true)
@@ -74,6 +81,7 @@ class FriendFragment : Fragment() {
         viewModel = ViewModelProvider(this,FriendViewModelFactory(requireActivity())).get(FriendViewModel::class.java)
         binding = FriendFragmentBinding.inflate(layoutInflater,null,false)
         setMessageHandler()
+        subscribeFriendshipRequests()
 
         val friendRecyclerView = binding.friendRecyclerView
         val addFriendButton = binding.addFriendButton
@@ -123,6 +131,7 @@ class FriendFragment : Fragment() {
     override fun onResume() {
         super.onResume()
         setMessageHandler()
+        subscribeFriendshipRequests()
     }
 
     private fun setMessageHandler() {
@@ -180,6 +189,7 @@ class FriendFragment : Fragment() {
                     AlertDialog.Builder(activity).apply {
                         setTitle("是否通过申请")
                         setMessage("用户 $srcUsername 请求添加你为好友")
+                        setCancelable(false)
                         setPositiveButton("Accept") { _, _ ->
                             val attributes: MutableMap<String, Any> = HashMap()
                             attributes["lastContact"] = System.currentTimeMillis()
@@ -226,6 +236,35 @@ class FriendFragment : Fragment() {
             .setLargeIcon(BitmapFactory.decodeResource(resources,R.drawable.large_icon))
             .build()
         manager.notify(System.currentTimeMillis().toInt(),notification)
+    }
+
+    private fun subscribeFriendshipRequests() {
+        val requestQuery = LCQuery<LCFriendshipRequest>("_FriendshipRequest")
+        requestQuery.whereEqualTo(LCFriendshipRequest.ATTR_FRIEND, curUser)
+        requestQuery.whereEqualTo(LCFriendshipRequest.ATTR_STATUS, "pending")
+        val requestLiveQuery = LCLiveQuery.initWithQuery(requestQuery)
+        requestLiveQuery.setEventHandler(object : LCLiveQueryEventHandler() {
+            override fun onObjectCreated(request: LCObject) {
+                val query = LCQuery<LCFriendshipRequest>(LCFriendshipRequest.CLASS_NAME)
+                query.whereEqualTo(LCFriendshipRequest.KEY_OBJECT_ID,request.objectId)
+                query.firstInBackground.subscribe(object : Observer<LCFriendshipRequest> {
+                    override fun onSubscribe(d: Disposable) {}
+                    override fun onNext(t: LCFriendshipRequest) {
+                        askForAcceptance(t)
+                    }
+                    override fun onError(e: Throwable) {}
+                    override fun onComplete() {}
+                })
+            }
+        })
+        LCLiveQuery.setConnectionHandler(object : LCLiveQueryConnectionHandler {
+            override fun onConnectionOpen() {}
+            override fun onConnectionClose() {}
+            override fun onConnectionError(code: Int, reason: String) {}
+        })
+        requestLiveQuery.subscribeInBackground(object : LCLiveQuerySubscribeCallback() {
+            override fun done(e: LCException?) {}
+        })
     }
 
 }

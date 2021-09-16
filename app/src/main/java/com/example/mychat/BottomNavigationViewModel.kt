@@ -70,7 +70,7 @@ class BottomNavigationViewModel : ViewModel() {
     fun refreshFriendList(friendName: String, friendAvatar: Int) {
         val fList = friends.value
         if (fList != null) {
-            fList.add(Pair(Friend(friendName,friendAvatar),false))
+            fList.add(0,Pair(Friend(friendName,friendAvatar),false))
             friends.value = fList!!
         }
     }
