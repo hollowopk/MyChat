@@ -1,6 +1,7 @@
 package com.example.mychat
 
 import android.os.Bundle
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.navigation.findNavController
 import androidx.navigation.ui.AppBarConfiguration
@@ -13,6 +14,7 @@ class BottomNavigationActivity : AppCompatActivity(){
 
     private lateinit var binding: ActivityBottomNavigationBinding
     private val tag = "BottomNavigationActivity"
+    private val viewModel: BottomNavigationViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

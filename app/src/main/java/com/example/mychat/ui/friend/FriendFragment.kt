@@ -15,12 +15,12 @@ import android.widget.EditText
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
-import cn.leancloud.LCFriendshipRequest
-import cn.leancloud.LCQuery
-import cn.leancloud.LCUser
+import cn.leancloud.*
 import cn.leancloud.im.v2.*
+import com.example.mychat.BottomNavigationViewModel
 import com.example.mychat.FriendAdapter
 import com.example.mychat.R
 import com.example.mychat.chat.ChatUI
@@ -36,9 +36,35 @@ class FriendFragment : Fragment() {
 
     private lateinit var viewModel: FriendViewModel
     private lateinit var binding: FriendFragmentBinding
+    private val activityViewModel : BottomNavigationViewModel by activityViewModels()
 
     companion object {
         private var curUser: LCUser = LCUser.currentUser()
+        fun updateLastContactTime(friendName: String, time: Long) {
+            val query = LCQuery<LCObject>("_Followee")
+            query.whereEqualTo(LCFriendship.ATTR_FRIEND_STATUS, true)
+            query.whereEqualTo("friendName", friendName)
+            query.whereEqualTo("username", curUser.username)
+            query.findInBackground().subscribe(object : Observer<List<LCObject>> {
+                override fun onSubscribe(d: Disposable) {}
+                override fun onError(e: Throwable) {}
+                override fun onComplete() {}
+                override fun onNext(friendshipList: List<LCObject>) {
+                    if (!friendshipList.isNullOrEmpty()) {
+                        for (friendship in friendshipList) {
+                            friendship.put("lastContact", time)
+                            friendship.saveInBackground().subscribe(object : Observer<LCObject> {
+                                override fun onSubscribe(d: Disposable) {}
+                                override fun onNext(t: LCObject) {}
+                                override fun onError(e: Throwable) {}
+                                override fun onComplete() {}
+
+                            })
+                        }
+                    }
+                }
+            })
+        }
     }
 
     override fun onCreateView(
@@ -52,7 +78,7 @@ class FriendFragment : Fragment() {
         val friendRecyclerView = binding.friendRecyclerView
         val addFriendButton = binding.addFriendButton
 
-        viewModel.friends.observe(viewLifecycleOwner,{ result ->
+        activityViewModel.friends.observe(viewLifecycleOwner,{ result ->
             if (result != null) {
                 val layoutManager = LinearLayoutManager(activity)
                 friendRecyclerView.layoutManager = layoutManager
@@ -62,7 +88,7 @@ class FriendFragment : Fragment() {
                         intent.putExtra("friendName",friend.first.friendName)
                         intent.putExtra("friendAvatar",friend.first.friendAvatar)
                         startActivity(intent)
-                        viewModel.notifyMessageRead(friend.first.friendName)
+                        activityViewModel.notifyMessageRead(friend.first.friendName)
                     }
                 })
                 friendRecyclerView.adapter = adapter
@@ -134,8 +160,10 @@ class FriendFragment : Fragment() {
                 conversation: LCIMConversation?,
                 client: LCIMClient?
             ) {
-                addNotification(message.from)
-                viewModel.notifyMessageUnread(message.from)
+                val friendName = message.from
+                addNotification(friendName)
+                activityViewModel.notifyMessageUnread(friendName)
+                updateLastContactTime(friendName,System.currentTimeMillis())
             }
         })
     }
@@ -153,13 +181,17 @@ class FriendFragment : Fragment() {
                         setTitle("是否通过申请")
                         setMessage("用户 $srcUsername 请求添加你为好友")
                         setPositiveButton("Accept") { _, _ ->
-                            curUser.acceptFriendshipRequest(request, null)
+                            val attributes: MutableMap<String, Any> = HashMap()
+                            attributes["lastContact"] = System.currentTimeMillis()
+                            attributes["friendName"] = srcUsername
+                            attributes["username"] = curUser.username
+                            curUser.acceptFriendshipRequest(request, attributes)
                                 .subscribe(object : Observer<LCFriendshipRequest> {
                                     override fun onSubscribe(d: Disposable) {}
                                     override fun onError(e: Throwable) {}
                                     override fun onComplete() {}
                                     override fun onNext(t: LCFriendshipRequest) {
-                                        viewModel.refreshFriendList(srcUsername,srcUserAvatar)
+                                        activityViewModel.refreshFriendList(srcUsername,srcUserAvatar)
                                     }
                                 })
                         }

@@ -11,6 +11,7 @@ import cn.leancloud.im.v2.callback.LCIMConversationQueryCallback
 import cn.leancloud.im.v2.callback.LCIMMessagesQueryCallback
 import cn.leancloud.im.v2.messages.LCIMTextMessage
 import com.example.mychat.database.Message
+import com.example.mychat.ui.friend.FriendFragment
 
 class ChatUIViewModel(val context: Context, val friendName: String) : ViewModel() {
 
@@ -77,10 +78,10 @@ class ChatUIViewModel(val context: Context, val friendName: String) : ViewModel(
                 val curMsg = Message(senderName, curUser.username,
                                     textMsg.text, message.timestamp)
                 refreshMessage(curMsg)
+                FriendFragment.updateLastContactTime(friendName,System.currentTimeMillis())
             }
         })
     }
-
 
     fun sendMessage(content: String) {
         client.createConversation(listOf(friendName),"${curUser.username} & $friendName",
@@ -89,10 +90,10 @@ class ChatUIViewModel(val context: Context, val friendName: String) : ViewModel(
                 override fun done(conversation: LCIMConversation?, e: LCIMException?) {
                     val message = LCIMTextMessage()
                     message.text = content
-                    val msg = Message(curUser.username,friendName,content,System.currentTimeMillis())
                     conversation?.sendMessage(message,object : LCIMConversationCallback() {
                         override fun done(e: LCIMException?) {
-                            refreshMessage(msg)
+                            refreshMessage(Message(curUser.username,friendName,content,System.currentTimeMillis()))
+                            FriendFragment.updateLastContactTime(friendName,System.currentTimeMillis())
                         }
                     })
                 }
