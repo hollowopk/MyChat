@@ -3,10 +3,9 @@ package com.example.mychat.ui.friend
 import android.content.Context
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
-import cn.leancloud.*
-import cn.leancloud.livequery.LCLiveQuery
-import cn.leancloud.livequery.LCLiveQueryEventHandler
-import cn.leancloud.livequery.LCLiveQuerySubscribeCallback
+import cn.leancloud.LCFriendshipRequest
+import cn.leancloud.LCQuery
+import cn.leancloud.LCUser
 import com.example.mychat.showLog
 import com.example.mychat.showToast
 import io.reactivex.Observer
@@ -23,43 +22,7 @@ class FriendViewModel(private val context: Context) : ViewModel() {
     private var curUser: LCUser = LCUser.currentUser()
 
     init {
-        //subscribeFriends()
         loadAllFriendshipRequests()
-        //subscribeFriendshipRequests()
-    }
-
-
-    private fun subscribeFriends() {
-        val friendQuery = LCQuery<LCObject>("_Followee")
-        //friendQuery.whereEqualTo("friendStatus", true)
-        friendQuery.whereEqualTo("user", curUser)
-        val friendLiveQuery = LCLiveQuery.initWithQuery(friendQuery)
-        friendLiveQuery.setEventHandler(object : LCLiveQueryEventHandler() {
-            override fun onObjectCreated(LCObject: LCObject?) {
-                "create!!".showLog(myTag)
-            }
-        })
-        friendLiveQuery.subscribeInBackground(object : LCLiveQuerySubscribeCallback() {
-            override fun done(e: LCException) {}
-        })
-    }
-
-    private fun subscribeFriendshipRequests() {
-        val requestQuery = LCQuery<LCFriendshipRequest>("_FriendshipRequest")
-        requestQuery.whereEqualTo(LCFriendshipRequest.ATTR_FRIEND, curUser)
-        requestQuery.whereEqualTo(LCFriendshipRequest.ATTR_STATUS, "pending")
-        val requestLiveQuery = LCLiveQuery.initWithQuery(requestQuery)
-        requestLiveQuery.setEventHandler(object : LCLiveQueryEventHandler() {
-            override fun onObjectCreated(request: LCObject?) {
-                super.onObjectCreated(request)
-                val requestList = ArrayList<LCFriendshipRequest>()
-                requestList.add(request as LCFriendshipRequest)
-                friendshipRequests.value = requestList
-            }
-        })
-        requestLiveQuery.subscribeInBackground(object : LCLiveQuerySubscribeCallback() {
-            override fun done(e: LCException) {}
-        })
     }
 
     private fun loadAllFriendshipRequests() {
@@ -73,6 +36,7 @@ class FriendViewModel(private val context: Context) : ViewModel() {
                 for (LCFriendshipRequest in t) {
                     requestList.add(LCFriendshipRequest)
                     friendshipRequests.value = requestList
+                    "load".showLog(myTag)
                 }
             }
 

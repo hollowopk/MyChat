@@ -21,7 +21,6 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import cn.leancloud.*
 import cn.leancloud.im.v2.*
 import cn.leancloud.livequery.LCLiveQuery
-import cn.leancloud.livequery.LCLiveQueryConnectionHandler
 import cn.leancloud.livequery.LCLiveQueryEventHandler
 import cn.leancloud.livequery.LCLiveQuerySubscribeCallback
 import com.example.mychat.BottomNavigationViewModel
@@ -80,8 +79,6 @@ class FriendFragment : Fragment() {
     ): View {
         viewModel = ViewModelProvider(this,FriendViewModelFactory(requireActivity())).get(FriendViewModel::class.java)
         binding = FriendFragmentBinding.inflate(layoutInflater,null,false)
-        setMessageHandler()
-        subscribeFriendshipRequests()
 
         val friendRecyclerView = binding.friendRecyclerView
         val addFriendButton = binding.addFriendButton
@@ -185,36 +182,41 @@ class FriendFragment : Fragment() {
             override fun onNext(t: List<LCUser>) {
                 if (t.isNotEmpty()) {
                     val srcUsername = t[0].username
-                    val srcUserAvatar = t[0].getInt("userAvatar")
-                    AlertDialog.Builder(activity).apply {
-                        setTitle("是否通过申请")
-                        setMessage("用户 $srcUsername 请求添加你为好友")
-                        setCancelable(false)
-                        setPositiveButton("Accept") { _, _ ->
-                            val attributes: MutableMap<String, Any> = HashMap()
-                            attributes["lastContact"] = System.currentTimeMillis()
-                            attributes["friendName"] = srcUsername
-                            attributes["username"] = curUser.username
-                            curUser.acceptFriendshipRequest(request, attributes)
-                                .subscribe(object : Observer<LCFriendshipRequest> {
-                                    override fun onSubscribe(d: Disposable) {}
-                                    override fun onError(e: Throwable) {}
-                                    override fun onComplete() {}
-                                    override fun onNext(t: LCFriendshipRequest) {
-                                        activityViewModel.refreshFriendList(srcUsername,srcUserAvatar)
-                                    }
-                                })
+                    if (srcUsername != curUser.username) {
+                        val srcUserAvatar = t[0].getInt("userAvatar")
+                        AlertDialog.Builder(activity).apply {
+                            setTitle("是否通过申请")
+                            setMessage("用户 $srcUsername 请求添加你为好友")
+                            setCancelable(false)
+                            setPositiveButton("Accept") { _, _ ->
+                                val attributes: MutableMap<String, Any> = HashMap()
+                                attributes["lastContact"] = System.currentTimeMillis()
+                                attributes["friendName"] = srcUsername
+                                attributes["username"] = curUser.username
+                                curUser.acceptFriendshipRequest(request, attributes)
+                                    .subscribe(object : Observer<LCFriendshipRequest> {
+                                        override fun onSubscribe(d: Disposable) {}
+                                        override fun onError(e: Throwable) {}
+                                        override fun onComplete() {}
+                                        override fun onNext(t: LCFriendshipRequest) {
+                                            activityViewModel.refreshFriendList(
+                                                srcUsername,
+                                                srcUserAvatar
+                                            )
+                                        }
+                                    })
+                            }
+                            setNegativeButton("Decline") { _, _ ->
+                                curUser.declineFriendshipRequest(request)
+                                    .subscribe(object : Observer<LCFriendshipRequest> {
+                                        override fun onSubscribe(d: Disposable) {}
+                                        override fun onNext(t: LCFriendshipRequest) {}
+                                        override fun onError(e: Throwable) {}
+                                        override fun onComplete() {}
+                                    })
+                            }
+                            show()
                         }
-                        setNegativeButton("Decline") { _, _ ->
-                            curUser.declineFriendshipRequest(request)
-                                .subscribe(object : Observer<LCFriendshipRequest> {
-                                    override fun onSubscribe(d: Disposable) {}
-                                    override fun onNext(t: LCFriendshipRequest) {}
-                                    override fun onError(e: Throwable) {}
-                                    override fun onComplete() {}
-                                })
-                        }
-                        show()
                     }
 
                 }
@@ -239,14 +241,18 @@ class FriendFragment : Fragment() {
     }
 
     private fun subscribeFriendshipRequests() {
-        val requestQuery = LCQuery<LCFriendshipRequest>("_FriendshipRequest")
-        requestQuery.whereEqualTo(LCFriendshipRequest.ATTR_FRIEND, curUser)
-        requestQuery.whereEqualTo(LCFriendshipRequest.ATTR_STATUS, "pending")
+        val requestQuery1 = LCQuery<LCFriendshipRequest>("_FriendshipRequest")
+        requestQuery1.whereEqualTo(LCFriendshipRequest.ATTR_FRIEND, curUser)
+        requestQuery1.whereEqualTo(LCFriendshipRequest.ATTR_STATUS, "pending")
+        val requestQuery2 = LCQuery<LCFriendshipRequest>("_FriendshipRequest")
+        requestQuery2.whereEqualTo(LCFriendshipRequest.ATTR_USER, curUser)
+        requestQuery2.whereEqualTo(LCFriendshipRequest.ATTR_STATUS, "pending")
+        val requestQuery = LCQuery.or(listOf(requestQuery1,requestQuery2))
         val requestLiveQuery = LCLiveQuery.initWithQuery(requestQuery)
         requestLiveQuery.setEventHandler(object : LCLiveQueryEventHandler() {
             override fun onObjectCreated(request: LCObject) {
                 val query = LCQuery<LCFriendshipRequest>(LCFriendshipRequest.CLASS_NAME)
-                query.whereEqualTo(LCFriendshipRequest.KEY_OBJECT_ID,request.objectId)
+                query.whereEqualTo(LCFriendshipRequest.KEY_OBJECT_ID, request.objectId)
                 query.firstInBackground.subscribe(object : Observer<LCFriendshipRequest> {
                     override fun onSubscribe(d: Disposable) {}
                     override fun onNext(t: LCFriendshipRequest) {
@@ -256,14 +262,40 @@ class FriendFragment : Fragment() {
                     override fun onComplete() {}
                 })
             }
-        })
-        LCLiveQuery.setConnectionHandler(object : LCLiveQueryConnectionHandler {
-            override fun onConnectionOpen() {}
-            override fun onConnectionClose() {}
-            override fun onConnectionError(code: Int, reason: String) {}
+
+            override fun onObjectLeave(LCObject: LCObject?, updateKeyList: MutableList<String>?) {
+                if (LCObject != null) {
+                    val query = LCQuery<LCFriendshipRequest>(LCFriendshipRequest.CLASS_NAME)
+                    query.whereEqualTo(LCFriendshipRequest.KEY_OBJECT_ID, LCObject.objectId)
+                    query.firstInBackground.subscribe(object : Observer<LCFriendshipRequest> {
+                        override fun onSubscribe(d: Disposable) {}
+                        override fun onNext(request: LCFriendshipRequest) {
+                            if (request.getString("status") == "accepted") {
+                                val friendId = request.friend.objectId
+                                updateFriendListByFriendId(friendId)
+                            }
+                        }
+                        override fun onError(e: Throwable) {}
+                        override fun onComplete() {}
+                    })
+                }
+            }
         })
         requestLiveQuery.subscribeInBackground(object : LCLiveQuerySubscribeCallback() {
             override fun done(e: LCException?) {}
+        })
+    }
+
+    private fun updateFriendListByFriendId(friendId: String) {
+        val query = LCQuery<LCUser>(LCUser.CLASS_NAME)
+        query.whereEqualTo(LCUser.KEY_OBJECT_ID,friendId)
+        query.firstInBackground.subscribe(object : Observer<LCUser> {
+            override fun onSubscribe(d: Disposable) {}
+            override fun onNext(friend: LCUser) {
+                activityViewModel.refreshFriendList(friend.username,friend.getInt("userAvatar"))
+            }
+            override fun onError(e: Throwable) {}
+            override fun onComplete() {}
         })
     }
 

@@ -13,6 +13,7 @@ class BottomNavigationViewModel : ViewModel() {
 
     val friends = MutableLiveData<ArrayList<Pair<Friend,Boolean>>>()
     private var curUser: LCUser = LCUser.currentUser()
+    private val tag = "BottomNavigationViewModel"
 
     init {
         loadAllFriends()
@@ -71,7 +72,7 @@ class BottomNavigationViewModel : ViewModel() {
         val fList = friends.value
         if (fList != null) {
             fList.add(0,Pair(Friend(friendName,friendAvatar),false))
-            friends.value = fList!!
+            friends.value = fList
         }
     }
 
